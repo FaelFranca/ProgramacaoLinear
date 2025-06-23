@@ -1,92 +1,106 @@
 import pulp as p
 
-def ler_dados():
+def ler_precos():
     print("\n=== INSIRA OS PREÇOS DE VENDA ===")
-    precos = {
+    return {
         "escrivaninha": float(input("Preço da escrivaninha: ")),
         "mesa": float(input("Preço da mesa: ")),
         "armario": float(input("Preço do armário: ")),
         "prateleira": float(input("Preço da prateleira: "))
     }
 
-    print("\n=== INSIRA OS COEFICIENTES DE CONSUMO DE CADA ITEM ===")
-    nomes = ["escrivaninha", "mesa", "armario", "prateleira"]
+def ler_coeficientes():
+    print("\n=== INSIRA OS COEFICIENTES DE CONSUMO ===")
+    produtos = ["escrivaninha", "mesa", "armario", "prateleira"]
     recursos = ["Tábuas", "Pranchas", "Painéis"]
     coef_restricoes = []
-    for i in range(3):
-        print(f"{recursos[i]} usados por produto:")
+    for recurso in recursos:
+        print(f"\n{recurso} usados por produto:")
         restricao = {}
-        for nome in nomes:
-            restricao[nome] = float(input(f"Qtd. de {recursos[i]} por {nome}: "))
+        for prod in produtos:
+            restricao[prod] = float(input(f"{prod} consome quantas {recurso}? "))
         coef_restricoes.append(restricao)
+    return coef_restricoes
 
-    return precos, coef_restricoes
+def ler_limites(recursos):
+    print("\n=== INSIRA AS QUANTIDADES DISPONÍVEIS DE MATERIAIS ===")
+    return [float(input(f"Quantidade disponível de {rec}: ")) for rec in recursos]
 
 def resolver_otimizacao(precos, coef_restricoes, limites):
     problema = p.LpProblem("Maximizar Receita", p.LpMaximize)
 
-    escrivaninha = p.LpVariable("escrivaninha", lowBound=0)
-    mesa = p.LpVariable("mesa", lowBound=0)
-    armario = p.LpVariable("armario", lowBound=0)
-    prateleira = p.LpVariable("prateleira", lowBound=0)
+    vars = {
+        "escrivaninha": p.LpVariable("escrivaninha", lowBound=0),
+        "mesa": p.LpVariable("mesa", lowBound=0),
+        "armario": p.LpVariable("armario", lowBound=0),
+        "prateleira": p.LpVariable("prateleira", lowBound=0)
+    }
 
-    problema += (
-        precos["escrivaninha"] * escrivaninha +
-        precos["mesa"] * mesa +
-        precos["armario"] * armario +
-        precos["prateleira"] * prateleira
-    )
+    problema += sum(precos[nome] * var for nome, var in vars.items())
 
     for i in range(3):
-        problema += (
-            coef_restricoes[i]["escrivaninha"] * escrivaninha +
-            coef_restricoes[i]["mesa"] * mesa +
-            coef_restricoes[i]["armario"] * armario +
-            coef_restricoes[i]["prateleira"] * prateleira
-            <= limites[i]
-        )
+        problema += sum(coef_restricoes[i][nome] * var for nome, var in vars.items()) <= limites[i]
 
     problema.solve()
 
     print("\n=== SOLUÇÃO ÓTIMA ===")
-    print(f"Escrivaninha: {p.value(escrivaninha)}")
-    print(f"Mesa: {p.value(mesa)}")
-    print(f"Armário: {p.value(armario)}")
-    print(f"Prateleira: {p.value(prateleira)}")
+    for nome in vars:
+        print(f"{nome.capitalize()}: {p.value(vars[nome])}")
     print(f"Receita total: R$ {p.value(problema.objective):.2f}")
 
-    return precos, coef_restricoes
-
-def calcular_restricoes_necessarias(quantidades, coef_restricoes):
-    print("\n=== MATERIAIS NECESSÁRIOS PARA A PRODUÇÃO ===")
-    recursos = ["Tábuas", "Pranchas", "Painéis"]
-    for i, restricao in enumerate(coef_restricoes):
-        total = sum(quantidades[var] * restricao[var] for var in quantidades)
-        print(f"{recursos[i]} necessárias: {total:.2f}")
+def calcular_materiais(quantidades, coef_restricoes, recursos):
+    print("\n=== MATERIAIS NECESSÁRIOS PARA AS NOVAS QUANTIDADES ===")
+    for i, recurso in enumerate(recursos):
+        total = sum(quantidades[prod] * coef_restricoes[i][prod] for prod in quantidades)
+        print(f"{recurso}: {total:.2f}")
 
 def main():
-    precos, coef_restricoes = ler_dados()
-
     recursos = ["Tábuas", "Pranchas", "Painéis"]
-    limites = []
-    for i in range(3):
-        limites.append(float(input(f"Quantidade disponível de {recursos[i]}: ")))
+    precos = ler_precos()
+    coef_restricoes = ler_coeficientes()
+    limites = ler_limites(recursos)
 
     resolver_otimizacao(precos, coef_restricoes, limites)
 
-    resposta = input("\nDeseja testar outras quantidades e recalcular os materiais? (s/n): ").lower()
-    if resposta == 's':
-        print("\n=== INSIRA AS NOVAS QUANTIDADES DE PRODUÇÃO ===")
-        quantidades = {
-            "escrivaninha": float(input("Quantidade de escrivaninha: ")),
-            "mesa": float(input("Quantidade de mesa: ")),
-            "armario": float(input("Quantidade de armário: ")),
-            "prateleira": float(input("Quantidade de prateleira: "))
-        }
+    while True:
+        print("\n=== MENU ===")
+        print("q - Testar novas quantidades")
+        print("c - Alterar coeficientes de consumo")
+        print("m - Alterar quantidade total dos materiais")
+        print("p - Alterar preços dos produtos")
+        print("s - Sair")
 
-        receita = sum(quantidades[var] * precos[var] for var in quantidades)
-        print(f"\nReceita com essas quantidades: R$ {receita:.2f}")
+        resp = input("Escolha uma opção: ").lower()
 
-        calcular_restricoes_necessarias(quantidades, coef_restricoes)
+        if resp == 's':
+            print("Programa finalizado.")
+            break
+        elif resp == 'q':
+            print("\nInforme as novas quantidades:")
+            quantidades = {
+                "escrivaninha": float(input("Qtd. de escrivaninha: ")),
+                "mesa": float(input("Qtd. de mesa: ")),
+                "armario": float(input("Qtd. de armário: ")),
+                "prateleira": float(input("Qtd. de prateleira: "))
+            }
+
+            receita = sum(quantidades[prod] * precos[prod] for prod in quantidades)
+            print(f"\nReceita com essas quantidades: R$ {receita:.2f}")
+            calcular_materiais(quantidades, coef_restricoes, recursos)
+
+        elif resp == 'c':
+            coef_restricoes = ler_coeficientes()
+            print("Coeficientes atualizados com sucesso.")
+            resolver_otimizacao(precos, coef_restricoes, limites)
+
+        elif resp == 'm':
+            limites = ler_limites(recursos)
+            print("Limites de materiais atualizados.")
+            resolver_otimizacao(precos, coef_restricoes, limites)
+
+        elif resp == 'p':
+            precos = ler_precos()
+            print("Preços atualizados com sucesso.")
+            resolver_otimizacao(precos, coef_restricoes, limites)
 
 main()
